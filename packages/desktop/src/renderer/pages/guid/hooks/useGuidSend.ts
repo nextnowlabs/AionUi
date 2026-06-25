@@ -15,6 +15,7 @@ import { type TFunction } from 'i18next';
 import type { NavigateFunction } from 'react-router-dom';
 import { mutate as swrMutate } from 'swr';
 import { getConversationCreateErrorMessage } from '@/renderer/pages/conversation/utils/conversationCreateError';
+import { getDraftConversation, clearDraftConversation } from './useGuidDraftConversation';
 import type { AcpModelInfo } from '../types';
 
 export type GuidSendDeps = {
@@ -202,7 +203,18 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
       return;
     }
 
-    try {
+    // Check for a draft conversation created when the workspace was selected
+    const draft = getDraftConversation();
+    const canReuseDraft =
+      draft !== null &&
+      draft.workspace === finalWorkspace &&
+      draft.assistantId === assistantConversationId;
+
+    let conversationId: string;
+    if (canReuseDraft) {
+      conversationId = draft.conversationId;
+      clearDraftConversation();
+    } else {
       const conversation = await ipcBridge.conversation.create.invoke({
         name: input,
         assistant: {
@@ -223,7 +235,10 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
         console.error('Failed to create ACP conversation - conversation object is null or missing id');
         return;
       }
+      conversationId = conversation.id;
+    }
 
+    try {
       if (isCustomWorkspace) {
         updateWorkspaceTime(finalWorkspace);
       }
@@ -241,9 +256,9 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
         input,
         files: files.length > 0 ? files : undefined,
       };
-      sessionStorage.setItem(`acp_initial_message_${conversation.id}`, JSON.stringify(initialMessage));
+      sessionStorage.setItem(`acp_initial_message_${conversationId}`, JSON.stringify(initialMessage));
 
-      await navigate(`/conversation/${conversation.id}`);
+      await navigate(`/conversation/${conversationId}`);
     } catch (error: unknown) {
       console.error('Failed to create ACP conversation:', error);
       throw error;

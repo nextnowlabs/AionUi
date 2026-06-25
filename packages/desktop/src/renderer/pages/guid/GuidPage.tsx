@@ -24,6 +24,7 @@ import { useGuidSend } from './hooks/useGuidSend';
 import { useTypewriterPlaceholder } from './hooks/useTypewriterPlaceholder';
 import { ensureBackendMcpCatalog } from '@/renderer/hooks/mcp/catalog';
 import { resolveGuidAssistantDefaults } from './utils/assistantDefaults';
+import { useGuidDraftConversation } from './hooks/useGuidDraftConversation';
 import SpeechInputButton from '@/renderer/components/chat/SpeechInputButton';
 import { appendSpeechTranscript } from '@/renderer/hooks/system/useSpeechInput';
 import { useLiveTranscriptInsertion } from '@/renderer/hooks/system/useLiveTranscriptInsertion';
@@ -129,6 +130,15 @@ const GuidPage: React.FC = () => {
 
   const guidInput = useGuidInput({
     locationState: location.state as { workspace?: string } | null,
+  });
+
+  // Pre-warm ACP agent process when workspace is selected so that project-level
+  // custom agents become discoverable before the first message.
+  useGuidDraftConversation({
+    dir: guidInput.dir,
+    selectedAssistantId: agentSelection.selectedAssistantId,
+    selectedAssistantBackend: agentSelection.selectedAssistantBackend,
+    current_model: modelSelection.current_model,
   });
 
   const resetMentionOpen = useCallback<React.Dispatch<React.SetStateAction<boolean>>>(() => {}, []);
